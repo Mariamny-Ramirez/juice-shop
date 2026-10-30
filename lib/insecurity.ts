@@ -94,17 +94,33 @@ export const userEmailFrom = ({ headers }: any) => {
   return headers ? headers['x-user-email'] : undefined
 }
 
+// Without COUPON_SECRET a random per-process key is used, so coupons stop working after a restart
+const couponSecret = process.env.COUPON_SECRET ?? crypto.randomBytes(32).toString('hex')
+
+const couponSignature = (payload: string) => {
+  const mac = crypto.createHmac('sha256', couponSecret).update(payload).digest().subarray(0, 8)
+  return z85.encode(mac)
+}
+
 export const generateCoupon = (discount: number, date = new Date()) => {
   const coupon = utils.toMMMYY(date) + '-' + discount
-  return z85.encode(coupon)
+  return z85.encode(coupon) + couponSignature(coupon)
 }
 
 export const discountFromCoupon = (coupon?: string) => {
-  if (!coupon) {
+  if (!coupon || coupon.length !== 20) {
     return undefined
   }
-  const decoded = z85.decode(coupon)
-  if (decoded && (hasValidFormat(decoded.toString()) != null)) {
+  const decoded = z85.decode(coupon.substring(0, 10))
+  if (!decoded) {
+    return undefined
+  }
+  const expected = Buffer.from(couponSignature(decoded.toString()))
+  const actual = Buffer.from(coupon.substring(10))
+  if (expected.length !== actual.length || !crypto.timingSafeEqual(expected, actual)) {
+    return undefined
+  }
+  if (hasValidFormat(decoded.toString()) != null) {
     const parts = decoded.toString().split('-')
     const validity = parts[0]
     if (utils.toMMMYY(new Date()) === validity) {
