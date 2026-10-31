@@ -34,10 +34,11 @@ void describe('insecurity', () => {
   })
 
   void describe('generateCoupon', () => {
-    void it('returns base85-encoded month, year and discount as coupon code', () => {
+    void it('returns base85-encoded month, year and discount followed by a signature as coupon code', () => {
       const coupon = security.generateCoupon(20, new Date('1980-01-02'))
-      assert.equal(coupon, 'n<MiifFb4l')
-      assert.equal(z85.decode(coupon).toString(), 'JAN80-20')
+      assert.equal(coupon.length, 20)
+      assert.equal(coupon.substring(0, 10), 'n<MiifFb4l')
+      assert.equal(z85.decode(coupon.substring(0, 10)).toString(), 'JAN80-20')
     })
 
     void it('uses current month and year if not specified', () => {
@@ -74,6 +75,14 @@ void describe('insecurity', () => {
 
     void it('returns undefined for expired coupon code', () => {
       assert.equal(security.discountFromCoupon(z85.encode('SEP14-50')), undefined)
+    })
+
+    void it('returns undefined for forged coupon code without valid signature', () => {
+      const valid = security.generateCoupon(10)
+      const month = z85.decode(valid.substring(0, 10)).toString().split('-')[0]
+      const forgedPayload = z85.encode(month + '-99')
+      assert.equal(security.discountFromCoupon(forgedPayload), undefined)
+      assert.equal(security.discountFromCoupon(forgedPayload + valid.substring(10)), undefined)
     })
 
     void it('returns discount from valid coupon code', () => {
