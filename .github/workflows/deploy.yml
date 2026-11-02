@@ -39,4 +39,4 @@ jobs:
             IMAGE=ghcr.io/mariamny-ramirez/juice-shop:latest
             sudo docker pull $IMAGE
             sudo docker rm -f juice-shop || true
-            sudo docker run -d --restart always -p 3000:3000 --name juice-shop $IMAGE
+            sudo docker run -d --restart always -p 3000:3000 -e COUPON_SECRET=${{ secrets.COUPON_SECRET }} --name juice-shop $IMAGE
